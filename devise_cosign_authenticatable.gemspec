@@ -1,7 +1,7 @@
 lib = File.expand_path('../lib', __FILE__)
 Gem::Specification.new do |s|
   s.name          = 'devise_cosign_authenticatable'
-  s.version       = 'hope_this_works'
+  s.version       = '10.0.0'
   s.authors       = ['Michael J. Giarlo']
   s.email         = ['leftwing@alumni.rutgers.edu']
   s.summary       = 'CoSign authentication module for Devise'
