@@ -1,14 +1,7 @@
-#lib = require_relative('../lib')
 lib = File.expand_path('../lib', __FILE__)
-#$LOAD_PATH << '.'
-#require 'lib'
-#puts "\n\n\n\nlib = #{lib}\n\n\n\n"
-#$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-#require 'devise_cosign_authenticatable/version'
-
 Gem::Specification.new do |s|
   s.name          = 'devise_cosign_authenticatable'
-  s.version       = DeviseCosignAuthenticatable::VERSION
+  s.version       = 'hope_this_works'
   s.authors       = ['Michael J. Giarlo']
   s.email         = ['leftwing@alumni.rutgers.edu']
   s.summary       = 'CoSign authentication module for Devise'
