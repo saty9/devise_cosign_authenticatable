@@ -1,4 +1,4 @@
-lib = File.expand_path('../lib', __FILE__)
+lib = require_relative('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 require 'devise_cosign_authenticatable/version'
 
