@@ -1,11 +1,7 @@
 class Devise::CosignSessionsController < Devise::SessionsController
   include DeviseCosignAuthenticatable::SingleSignOut::DestroySession
 
-  unless Rails.version =~/^4/
-    unloadable
-  end
-
-  skip_before_filter :verify_authenticity_token, :only => [:single_sign_out]
+  #skip_before_action :verify_authenticity_token, :only => [:single_sign_out]
 
   def new
     unless returning_from_cosign?
@@ -80,7 +76,7 @@ class Devise::CosignSessionsController < Devise::SessionsController
   def cosign_login_url
     ::Devise.cosign_client.add_service_to_login_url(::Devise.cosign_service_url(request.url, devise_mapping))
   end
-  helper_method :cosign_login_url
+  #helper_method :cosign_login_url
 
   def request_url
     return @request_url if @request_url
