@@ -176,7 +176,7 @@ module COSIGNClient
                               conf[:ticket_store]
                             end
       @ticket_store = @ticket_store_class.new conf[:ticket_store_config]
-      raise CASException, "The Ticket Store is not a subclass of AbstractTicketStore, it is a #{@ticket_store_class}" unless @ticket_store.kind_of? CASClient::Tickets::Storage::AbstractTicketStore
+      raise CosignException, "The Ticket Store is not a subclass of AbstractTicketStore, it is a #{@ticket_store_class}" unless @ticket_store.kind_of? CASClient::Tickets::Storage::AbstractTicketStore
 
       @log = CASClient::LoggerWrapper.new
       @log.set_real_logger(conf[:logger]) if conf[:logger]
@@ -312,7 +312,7 @@ module COSIGNClient
       https = https_connection(uri)
       res = https.post(uri.path, ';')
 
-      raise CASException, res.body unless res.kind_of? Net::HTTPSuccess
+      raise CosignException, res.body unless res.kind_of? Net::HTTPSuccess
 
       res.body.strip
     end
@@ -343,7 +343,7 @@ module COSIGNClient
     def retrieve_proxy_granting_ticket(pgt_iou)
       pgt = @ticket_store.retrieve_pgt(pgt_iou)
 
-      raise CASException, "Couldn't find pgt for pgt_iou #{pgt_iou}" unless pgt
+      raise CosignException, "Couldn't find pgt for pgt_iou #{pgt_iou}" unless pgt
 
       ProxyGrantingTicket.new(pgt, pgt_iou)
     end
@@ -414,4 +414,87 @@ module COSIGNClient
       pairs.join("&")
     end
   end
+
+  class CosignException < Exception
+  end
+
+  class Logger < ::Logger
+    def initialize(logdev, shift_age = 0, shift_size = 1048576)
+      @default_formatter = Formatter.new
+      super
+    end
+
+    def format_message(severity, datetime, progrname, msg)
+      (@formatter || @default_formatter).call(severity, datetime, progname, msg)
+    end
+
+    def break
+      self << $/
+    end
+
+    class Formatter < ::Logger::Formatter
+      Format = "[%s#%d] %5s -- %s: %s\n"
+
+      def call(severity, time, progname, msg)
+        Format % [format_datetime(time), $$, severity, progname, msg2str(msg)]
+      end
+    end
+  end
+
+  # Wraps a real Logger. If no real Logger is set, then this wrapper
+  # will quietly swallow any logging calls.
+  class LoggerWrapper
+    def initialize(real_logger=nil)
+      set_logger(real_logger)
+    end
+    # Assign the 'real' Logger instance that this dummy instance wraps around.
+    def set_real_logger(real_logger)
+      @real_logger = real_logger
+    end
+    # Log using the appropriate method if we have a logger
+    # if we dont' have a logger, gracefully ignore.
+    def method_missing(name, *args)
+      if !@real_logger.nil? && @real_logger.respond_to?(name)
+        @real_logger.send(name, *args)
+      end
+    end
+  end
+
+  # Represents a CAS service ticket.
+  class ServiceTicket
+    attr_reader :ticket, :service, :renew
+    attr_accessor :user, :extra_attributes, :pgt_iou, :success, :failure_code, :failure_message
+
+    def initialize(ticket, service, renew = false)
+      @ticket = ticket
+      @service = service
+      @renew = renew
+    end
+
+    def is_valid?
+      success
+    end
+
+    def has_been_validated?
+      not user.nil?
+    end
+  end
+
+  # Represents a CAS proxy ticket.
+  class ProxyTicket < ServiceTicket
+  end
+
+  class ProxyGrantingTicket
+    attr_reader :ticket, :iou
+
+    def initialize(ticket, iou)
+      @ticket = ticket
+      @iou = iou
+    end
+
+    def to_s
+      ticket
+    end
+  end
+
 end
