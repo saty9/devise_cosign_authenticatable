@@ -5,6 +5,7 @@ require 'devise_cosign_authenticatable/strategy'
 require 'devise_cosign_authenticatable/exceptions'
 require 'devise_cosign_authenticatable/single_sign_out'
 require 'devise_cosign_authenticatable/railtie' if defined?(Rails::Railtie)
+require 'devise_cosign_authenticatable/tickets/storage'
 
 # Register as a Rails engine
 module DeviseCosignAuthenticatable
@@ -127,7 +128,7 @@ Devise.add_module(:cosign_authenticatable,
 module COSIGNClient
   # The client brokers all HTTP transactions with the CAS server.
   class Client
-    attr_reader :cas_base_url, :cas_destination_logout_param_name
+    attr_reader :cosign_base_url, :cas_destination_logout_param_name
     attr_reader :log, :username_session_key, :extra_attributes_session_key
     attr_reader :ticket_store
     attr_reader :proxy_host, :proxy_port
@@ -141,7 +142,7 @@ module COSIGNClient
     def configure(conf)
       #TODO: raise error if conf contains unrecognized cas options (this would help detect user typos in the config)
 
-      raise ArgumentError, "Missing :cas_base_url parameter!" unless conf[:cas_base_url]
+      raise ArgumentError, "Missing :cosign_base_url parameter!" unless conf[:cosign_base_url]
 
       if conf.has_key?("encode_extra_attributes_as")
         unless (conf[:encode_extra_attributes_as] == :json || conf[:encode_extra_attributes_as] == :yaml)
@@ -149,7 +150,7 @@ module COSIGNClient
         end
       end
 
-      @cas_base_url      = conf[:cas_base_url].gsub(/\/$/, '')
+      @cosign_base_url      = conf[:cosign_base_url].gsub(/\/$/, '')
       @cas_destination_logout_param_name = conf[:cas_destination_logout_param_name]
 
       @login_url    = conf[:login_url]
@@ -168,17 +169,17 @@ module COSIGNClient
       @extra_attributes_session_key = conf[:extra_attributes_session_key] || :cas_extra_attributes
       @ticket_store_class = case conf[:ticket_store]
                             when :local_dir_ticket_store, nil
-                              CASClient::Tickets::Storage::LocalDirTicketStore
+                              COSIGNClient::Tickets::Storage::LocalDirTicketStore
                             when :active_record_ticket_store
-                              require 'casclient/tickets/storage/active_record_ticket_store'
-                              CASClient::Tickets::Storage::ActiveRecordTicketStore
+                              require 'devise_cosign_authenticatable/tickets/storage/active_record_ticket_store'
+                              COSIGNClient::Tickets::Storage::ActiveRecordTicketStore
                             else
                               conf[:ticket_store]
                             end
       @ticket_store = @ticket_store_class.new conf[:ticket_store_config]
-      raise CosignException, "The Ticket Store is not a subclass of AbstractTicketStore, it is a #{@ticket_store_class}" unless @ticket_store.kind_of? CASClient::Tickets::Storage::AbstractTicketStore
+      raise CosignException, "The Ticket Store is not a subclass of AbstractTicketStore, it is a #{@ticket_store_class}" unless @ticket_store.kind_of? COSIGNClient::Tickets::Storage::AbstractTicketStore
 
-      @log = CASClient::LoggerWrapper.new
+      @log = COSIGNClient::LoggerWrapper.new
       @log.set_real_logger(conf[:logger]) if conf[:logger]
       @ticket_store.log = @log
       @conf_options = conf
@@ -189,17 +190,17 @@ module COSIGNClient
     end
 
     def login_url
-      @login_url || (cas_base_url + "/login")
+      @login_url || (cosign_base_url + "/login")
     end
 
     def validate_url
-      @validate_url || (cas_base_url + "/proxyValidate")
+      @validate_url || (cosign_base_url + "/proxyValidate")
     end
 
     # Returns the CAS server's logout url.
     #
     # If a logout_url has not been explicitly configured,
-    # the default is cas_base_url + "/logout".
+    # the default is cosign_base_url + "/logout".
     #
     # destination_url:: Set this if you want the user to be
     #                   able to immediately log back in. Generally
@@ -210,7 +211,7 @@ module COSIGNClient
     # follow_url:: This satisfies section 2.3.1 of the CAS protocol spec.
     #              See http://www.ja-sig.org/products/cas/overview/protocol
     def logout_url(destination_url = nil, follow_url = nil, service_url = nil)
-      url = @logout_url || (cas_base_url + "/logout")
+      url = @logout_url || (cosign_base_url + "/logout")
       uri = URI.parse(url)
       service_url = (service_url if service_url) || @service_url
       h = uri.query ? query_to_hash(uri.query) : {}
@@ -235,7 +236,7 @@ module COSIGNClient
     end
 
     def proxy_url
-      @proxy_url || (cas_base_url + "/proxy")
+      @proxy_url || (cosign_base_url + "/proxy")
     end
 
     def validate_service_ticket(st)
@@ -293,7 +294,7 @@ module COSIGNClient
       )
 
       res = submit_data_to_cas(login_url, data)
-      response = CASClient::LoginResponse.new(res)
+      response = COSIGNClient::LoginResponse.new(res)
 
       if response.is_success?
         log.info("Login was successful for ticket: #{response.ticket.inspect}.")
